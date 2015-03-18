@@ -166,6 +166,10 @@ typedef void (^MMDrawerControllerDrawerVisualStateBlock)(MMDrawerController * dr
 @property (nonatomic, assign) BOOL shouldStretchDrawer;
 
 /**
+ If the status bar should align with the pane view as the pane view frame is adjusted by both the user gestures and the internal dynamic animator.
+ */
+@property (nonatomic, assign) BOOL shouldAlignStatusBarToPaneView;
+/**
  The current open side of the drawer. 
  
  Note this value will change as soon as a pan gesture opens a drawer, or when a open/close animation is finished.
