@@ -160,15 +160,16 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 	return self;
 }
 
--(id)initWithCenterViewController:(UIViewController *)centerViewController leftDrawerViewController:(UIViewController *)leftDrawerViewController rightDrawerViewController:(UIViewController *)rightDrawerViewController{
-	NSParameterAssert(centerViewController);
-	self = [super init];
-	if(self){
-		[self setCenterViewController:centerViewController];
-		[self setLeftDrawerViewController:leftDrawerViewController];
-		[self setRightDrawerViewController:rightDrawerViewController];
-	}
-	return self;
+
+-(instancetype)initWithCenterViewController:(UIViewController *)centerViewController leftDrawerViewController:(UIViewController *)leftDrawerViewController rightDrawerViewController:(UIViewController *)rightDrawerViewController{
+    NSParameterAssert(centerViewController);
+    self = [super init];
+    if(self){
+        [self setCenterViewController:centerViewController];
+        [self setLeftDrawerViewController:leftDrawerViewController];
+        [self setRightDrawerViewController:rightDrawerViewController];
+    }
+    return self;
 }
 
 -(id)initWithCenterViewController:(UIViewController *)centerViewController leftDrawerViewController:(UIViewController *)leftDrawerViewController{
@@ -437,37 +438,53 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 }
 
 -(void)setCenterViewController:(UIViewController *)newCenterViewController withCloseAnimation:(BOOL)animated completion:(void(^)(BOOL finished))completion{
-	
-	if(self.openSide == MMDrawerSideNone){
-		//If a side drawer isn't open, there is nothing to animate...
-		animated = NO;
-	}
-	
-	BOOL forwardAppearanceMethodsToCenterViewController = ([self.centerViewController isEqual:newCenterViewController] == NO);
-	[self setCenterViewController:newCenterViewController animated:animated];
-	
-	if(animated){
-		[self updateDrawerVisualStateForDrawerSide:self.openSide percentVisible:1.0];
-		if (forwardAppearanceMethodsToCenterViewController) {
-			[self.centerViewController beginAppearanceTransition:YES animated:animated];
-		}
-		[self
-		 closeDrawerAnimated:animated
-		 completion:^(BOOL finished) {
-			 if (forwardAppearanceMethodsToCenterViewController) {
-				 [self.centerViewController endAppearanceTransition];
-				 [self.centerViewController didMoveToParentViewController:self];
-			 }
-			 if(completion){
-				 completion(finished);
-			 }
-		 }];
-	}
-	else {
-		if(completion) {
-			completion(YES);
-		}
-	}
+
+    
+    if(self.openSide == MMDrawerSideNone){
+        //If a side drawer isn't open, there is nothing to animate...
+        animated = NO;
+    }
+  
+    BOOL forwardAppearanceMethodsToCenterViewController = ([self.centerViewController isEqual:newCenterViewController] == NO);
+
+    UIViewController * oldCenterViewController = self.centerViewController;
+    // This is related to issue 363 (https://github.com/novkostya/MMDrawerController/pull/363)
+    // This needs to be refactored so the appearance logic is easier
+    // to follow across the multiple close/setter methods
+    if (animated && forwardAppearanceMethodsToCenterViewController) {
+        [oldCenterViewController beginAppearanceTransition:NO animated:NO];
+    }
+    
+    [self setCenterViewController:newCenterViewController animated:animated];
+    
+    // Related to note above.
+    if (animated && forwardAppearanceMethodsToCenterViewController) {
+        [oldCenterViewController endAppearanceTransition];
+    }
+    
+    if(animated){
+        [self updateDrawerVisualStateForDrawerSide:self.openSide percentVisible:1.0];
+        if (forwardAppearanceMethodsToCenterViewController) {
+            [self.centerViewController beginAppearanceTransition:YES animated:animated];
+        }
+        [self
+         closeDrawerAnimated:animated
+         completion:^(BOOL finished) {
+             if (forwardAppearanceMethodsToCenterViewController) {
+                 [self.centerViewController endAppearanceTransition];
+                 [self.centerViewController didMoveToParentViewController:self];
+             }
+             if(completion){
+                 completion(finished);
+             }
+         }];
+    }
+    else {
+        if(completion) {
+            completion(YES);
+        }
+    }
+
 }
 
 -(void)setCenterViewController:(UIViewController *)newCenterViewController withFullCloseAnimation:(BOOL)animated completion:(void(^)(BOOL finished))completion{
@@ -614,8 +631,10 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 
 #pragma mark - Bounce Methods
 -(void)bouncePreviewForDrawerSide:(MMDrawerSide)drawerSide completion:(void(^)(BOOL finished))completion{
-	NSParameterAssert(drawerSide!=MMDrawerSideNone);
-	[self bouncePreviewForDrawerSide:drawerSide distance:MMDrawerDefaultBounceDistance completion:nil];
+
+    NSParameterAssert(drawerSide!=MMDrawerSideNone);
+    [self bouncePreviewForDrawerSide:drawerSide distance:MMDrawerDefaultBounceDistance completion:completion];
+
 }
 
 -(void)bouncePreviewForDrawerSide:(MMDrawerSide)drawerSide distance:(CGFloat)distance completion:(void(^)(BOOL finished))completion{
@@ -787,8 +806,9 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 	}
 }
 
--(BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation{
-	return YES;
+
+-(BOOL)shouldAutorotate{
+    return YES;
 }
 
 -(void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation{
@@ -892,27 +912,21 @@ static NSString *MMDrawerOpenSideKey = @"MMDrawerOpenSide";
 }
 
 -(void)setShowsStatusBarBackgroundView:(BOOL)showsDummyStatusBar{
-	NSArray *sysVersion = [[UIDevice currentDevice].systemVersion componentsSeparatedByString:@"."];
-	float majorVersion = [[sysVersion objectAtIndex:0] floatValue];
-	if (majorVersion >= 7){
-		if(showsDummyStatusBar!=_showsStatusBarBackgroundView){
-			_showsStatusBarBackgroundView = showsDummyStatusBar;
-			CGRect frame = self.childControllerContainerView.frame;
-			if(_showsStatusBarBackgroundView){
-				frame.origin.y = 20;
-				frame.size.height = CGRectGetHeight(self.view.bounds)-20;
-			}
-			else {
-				frame.origin.y = 0;
-				frame.size.height = CGRectGetHeight(self.view.bounds);
-			}
-			[self.childControllerContainerView setFrame:frame];
-			[self.dummyStatusBarView setHidden:!showsDummyStatusBar];
-		}
-	}
-	else {
-		_showsStatusBarBackgroundView = NO;
-	}
+
+    if(showsDummyStatusBar!=_showsStatusBarBackgroundView){
+        _showsStatusBarBackgroundView = showsDummyStatusBar;
+        CGRect frame = self.childControllerContainerView.frame;
+        if(_showsStatusBarBackgroundView){
+            frame.origin.y = 20;
+            frame.size.height = CGRectGetHeight(self.view.bounds)-20;
+        }
+        else {
+            frame.origin.y = 0;
+            frame.size.height = CGRectGetHeight(self.view.bounds);
+        }
+        [self.childControllerContainerView setFrame:frame];
+        [self.dummyStatusBarView setHidden:!showsDummyStatusBar];
+    }
 }
 
 -(void)setStatusBarViewBackgroundColor:(UIColor *)dummyStatusBarColor{
